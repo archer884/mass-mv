@@ -10,18 +10,25 @@ pub struct Renamer {
 impl Renamer {
     pub fn new(template: &str) -> Self {
         Self {
-            idx: 0,
+            idx: 1,
+            template: Template::new(template),
+        }
+    }
+
+    pub fn with_idx(template: &str, idx: u32) -> Self {
+        Self {
+            idx,
             template: Template::new(template),
         }
     }
 
     pub fn rename(&mut self, path: &Path) -> PathBuf {
-        self.idx += 1;
         let stem = self.context(path).to_string();
         let mut result = path.with_file_name(stem);
         if let Some(extension) = path.extension() {
             result.set_extension(extension);
         }
+        self.idx += 1;
         result
     }
 

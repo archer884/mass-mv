@@ -2,11 +2,10 @@ mod paths;
 mod rename;
 mod template;
 
+use rename::Renamer;
+use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::{
-    fs,
-    io::{self, Write},
-};
 use structopt::StructOpt;
 
 #[derive(Clone, Debug, StructOpt)]
@@ -21,6 +20,8 @@ struct Opt {
     ///
     /// Enclose replacement tokens in /{}, e.g. /{nnn}.
     template: String,
+
+    /// Paths (glob patterns or specific files) to be moved.
     paths: Vec<String>,
 
     /// Perform copy instead of rename
@@ -30,6 +31,10 @@ struct Opt {
     /// Perform rename
     #[structopt(short, long)]
     force: bool,
+
+    /// Allows users to set an arbitrary starting point for numbering.
+    #[structopt(short, long)]
+    start: Option<u32>,
 }
 
 fn main() -> io::Result<()> {
@@ -38,9 +43,13 @@ fn main() -> io::Result<()> {
         paths,
         copy,
         force,
+        start,
     } = Opt::from_args();
 
-    let mut renamer = rename::Renamer::new(&template);
+    let mut renamer = start
+        .map(|idx| Renamer::with_idx(&template, idx))
+        .unwrap_or_else(|| Renamer::new(&template));
+    
     let mut paths: Vec<_> = paths.into_iter().flat_map(paths::extract).collect();
     paths.sort();
 
