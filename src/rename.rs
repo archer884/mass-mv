@@ -105,13 +105,14 @@ mod tests {
         ];
 
         let mut renamer = super::Renamer::new("Fuzzy Bear /{nnn}-/{ooo} (original)");
-        let actual: Vec<_> = files
+        let actual = files
             .into_iter()
             .cloned()
-            .map(|x| renamer.rename(x.as_ref()))
-            .collect();
+            .map(|x| renamer.rename(x.as_ref()));
 
-        assert_eq!(actual, expected);
+        for (actual, &expected) in actual.zip(expected) {
+            assert_eq!(actual, expected);
+        }
     }
 
     #[test]
@@ -143,12 +144,13 @@ mod tests {
         ];
 
         let mut renamer = super::Renamer::with_idx("Fuzzy Bear /{nnn}-/{ooo} (original)", 21);
-        let actual: Vec<_> = files
+        let actual = files
             .into_iter()
             .cloned()
-            .map(|x| renamer.rename(x.as_ref()))
-            .collect();
+            .map(|x| renamer.rename(x.as_ref()));
 
-        assert_eq!(actual, expected);
+        for (actual, &expected) in actual.zip(expected) {
+            assert_eq!(actual, expected);
+        }
     }
 }
