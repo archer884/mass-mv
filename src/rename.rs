@@ -65,6 +65,7 @@ fn format_filename(f: &mut fmt::Formatter, path: &Path, width: usize) -> fmt::Re
         .file_stem()
         .expect("Must be a filename")
         .to_string_lossy();
+
     match width {
         1 => f.write_str(&name),
         n => f.write_str(&name[..n]),

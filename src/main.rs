@@ -49,7 +49,7 @@ fn main() -> io::Result<()> {
     let mut renamer = start
         .map(|idx| Renamer::with_idx(&template, idx))
         .unwrap_or_else(|| Renamer::new(&template));
-    
+
     let mut paths: Vec<_> = paths.into_iter().flat_map(paths::extract).collect();
     paths.sort();
 
