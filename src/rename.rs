@@ -112,4 +112,42 @@ mod tests {
 
         assert_eq!(actual, expected);
     }
+
+    #[test]
+    fn rename_works_with_offset_idx() {
+        let files = &[
+            "f4240.jpg",
+            "f4241.jpg",
+            "f4242.jpg",
+            "f4243.jpg",
+            "f4244.jpg",
+            "f4245.jpg",
+            "f4246.jpg",
+            "f4247.jpg",
+            "f4248.jpg",
+            "f4249.jpg",
+        ];
+
+        let expected = &[
+            Path::new("Fuzzy Bear 021-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 022-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 023-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 024-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 025-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 026-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 027-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 028-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 029-f42 (original).jpg"),
+            Path::new("Fuzzy Bear 030-f42 (original).jpg"),
+        ];
+
+        let mut renamer = super::Renamer::with_idx("Fuzzy Bear /{nnn}-/{ooo} (original)", 21);
+        let actual: Vec<_> = files
+            .into_iter()
+            .cloned()
+            .map(|x| renamer.rename(x.as_ref()))
+            .collect();
+
+        assert_eq!(actual, expected);
+    }
 }
