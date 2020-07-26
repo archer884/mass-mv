@@ -3,10 +3,33 @@ mod rename;
 mod template;
 
 use rename::Renamer;
-use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::{fs, str};
 use structopt::StructOpt;
+
+#[derive(Copy, Clone, Debug)]
+enum SortKind {
+    Created,
+    Modified,
+
+    // Do we need this for anything!?
+    Standard,
+}
+
+impl str::FromStr for SortKind {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_ref() {
+            "c" | "created" => Ok(SortKind::Created),
+            "m" | "modified" => Ok(SortKind::Modified),
+            "s" | "standard" => Ok(SortKind::Standard),
+
+            _ => Err(io::Error::new(io::ErrorKind::Other, "Invalid sort")),
+        }
+    }
+}
 
 #[derive(Clone, Debug, StructOpt)]
 struct Opt {
@@ -34,7 +57,11 @@ struct Opt {
 
     /// Allows users to set an arbitrary starting point for numbering.
     #[structopt(short, long)]
-    start: Option<u32>,
+    offset: Option<u32>,
+
+    /// Set sorting type
+    #[structopt(short, long)]
+    sort: Option<SortKind>,
 }
 
 fn main() -> io::Result<()> {
@@ -43,15 +70,16 @@ fn main() -> io::Result<()> {
         paths,
         copy,
         force,
-        start,
+        offset,
+        sort,
     } = Opt::from_args();
 
-    let mut renamer = start
+    let mut renamer = offset
         .map(|idx| Renamer::with_idx(&template, idx))
         .unwrap_or_else(|| Renamer::new(&template));
 
-    let mut paths: Vec<_> = paths.into_iter().flat_map(paths::extract).collect();
-    paths.sort();
+    let paths = paths.into_iter().flat_map(paths::extract);
+    let paths = sort_paths(sort.unwrap_or(SortKind::Standard), paths)?;
 
     let new_paths = paths.iter().map(|x| renamer.rename(x));
 
@@ -112,4 +140,41 @@ fn preview(paths: &[PathBuf], new_paths: impl Iterator<Item = PathBuf>) -> io::R
 
 fn format_op(writer: &mut io::StdoutLock, from: &Path, to: &Path) -> io::Result<()> {
     writeln!(writer, "{}\n -> {}", from.display(), to.display())
+}
+
+fn sort_paths<'a>(
+    sort: SortKind,
+    paths: impl Iterator<Item = PathBuf>,
+) -> io::Result<Vec<PathBuf>> {
+    use std::fs::Metadata;
+    use std::time::SystemTime;
+
+    fn collect_with_meta(
+        paths: impl Iterator<Item = PathBuf>,
+        extractor: impl Fn(Metadata) -> io::Result<SystemTime>,
+    ) -> io::Result<Vec<(PathBuf, SystemTime)>> {
+        paths
+            .map(|x| x.metadata().and_then(&extractor).map(|y| (x, y)))
+            .collect()
+    }
+
+    match sort {
+        SortKind::Created => {
+            let mut with_meta = collect_with_meta(paths, |x| x.created())?;
+            with_meta.sort_unstable_by_key(|x| x.1);
+            Ok(with_meta.into_iter().map(|x| x.0).collect())
+        }
+
+        SortKind::Modified => {
+            let mut with_meta = collect_with_meta(paths, |x| x.modified())?;
+            with_meta.sort_unstable_by_key(|x| x.1);
+            Ok(with_meta.into_iter().map(|x| x.0).collect())
+        }
+
+        SortKind::Standard => {
+            let mut paths: Vec<_> = paths.collect();
+            paths.sort_unstable();
+            Ok(paths)
+        }
+    }
 }
