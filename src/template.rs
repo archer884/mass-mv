@@ -5,8 +5,10 @@ use std::slice;
 pub enum Segment {
     /// A literal segment
     Literal(String),
+
     /// Indicates a numeric segment; the integer indicates the formatting width of the number
     Numeric(usize),
+
     /// Segment indicating use of the original filename; integer indicates how much of the filename to use
     Filename(usize),
 }
@@ -18,7 +20,7 @@ pub struct Template {
 
 impl Template {
     pub fn new(s: &str) -> Template {
-        let pattern = Regex::new(r#"[/]\{(n+|o+)\}"#).unwrap();
+        let pattern = Regex::new(r#"[/]\{([^\]])\}"#).unwrap();
         let captures = pattern.captures_iter(s);
 
         let mut segments = Vec::new();
@@ -30,9 +32,10 @@ impl Template {
                 segments.push(Segment::Literal(s[left..full_match.start()].into()));
             }
 
-            match cap.get(1).unwrap().as_str() {
-                token if token.starts_with('n') => segments.push(Segment::Numeric(token.len())),
-                token if token.starts_with('o') => segments.push(Segment::Filename(token.len())),
+            let token = cap.get(1).unwrap().as_str();
+            match &token[..1] {
+                "0" | "n" | "N" => segments.push(Segment::Numeric(token.len())),
+                "o" | "O" | "f" | "F" => segments.push(Segment::Filename(token.len())),
                 _ => (),
             }
 

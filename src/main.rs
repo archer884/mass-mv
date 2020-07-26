@@ -42,6 +42,7 @@ struct Opt {
     /// to be included in the filename.
     ///
     /// Enclose replacement tokens in /{}, e.g. /{nnn}.
+    /// Tokens include [0, n] (numeric) and [f, o] (filename).
     template: String,
 
     /// Paths (glob patterns or specific files) to be moved.
