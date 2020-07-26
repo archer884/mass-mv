@@ -104,7 +104,7 @@ mod tests {
             Path::new("Fuzzy Bear 010-f42 (original).jpg"),
         ];
 
-        let mut renamer = super::Renamer::new("Fuzzy Bear /{nnn}-/{ooo} (original)");
+        let mut renamer = super::Renamer::new("Fuzzy Bear {{nnn}}-{{ooo}} (original)");
         let actual = files
             .into_iter()
             .cloned()
@@ -143,7 +143,7 @@ mod tests {
             Path::new("Fuzzy Bear 030-f42 (original).jpg"),
         ];
 
-        let mut renamer = super::Renamer::with_idx("Fuzzy Bear /{nnn}-/{ooo} (original)", 21);
+        let mut renamer = super::Renamer::with_idx("Fuzzy Bear {{nnn}}-{{ooo}} (original)", 21);
         let actual = files
             .into_iter()
             .cloned()

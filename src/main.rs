@@ -41,7 +41,7 @@ struct Opt {
     /// thing works with filenames: oooo for "foobar" will cause "foob"
     /// to be included in the filename.
     ///
-    /// Enclose replacement tokens in /{}, e.g. /{nnn}.
+    /// Enclose replacement tokens in {{}}, e.g. {{nnn}}.
     /// Tokens include [0, n] (numeric) and [f, o] (filename).
     template: String,
 

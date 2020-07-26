@@ -20,7 +20,7 @@ pub struct Template {
 
 impl Template {
     pub fn new(s: &str) -> Template {
-        let pattern = Regex::new(r#"[/]\{([^\]])\}"#).unwrap();
+        let pattern = Regex::new(r#"\{\{(.+?)\}\}"#).unwrap();
         let captures = pattern.captures_iter(s);
 
         let mut segments = Vec::new();
@@ -58,7 +58,7 @@ impl Template {
 mod tests {
     #[test]
     fn can_create_template() {
-        let super::Template { segments } = super::Template::new("Moab Vacation /{o} /{nnnn}");
+        let super::Template { segments } = super::Template::new("Moab Vacation {{o}} {{nnnn}}");
         let expected = vec![
             super::Segment::Literal(String::from("Moab Vacation ")),
             super::Segment::Filename(1),
