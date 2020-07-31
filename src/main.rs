@@ -5,7 +5,7 @@ mod template;
 use rename::Renamer;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::{fs, str};
+use std::{fs, process, str};
 use structopt::StructOpt;
 
 #[derive(Copy, Clone, Debug)]
@@ -81,8 +81,15 @@ fn main() -> io::Result<()> {
 
     let paths = paths.into_iter().flat_map(paths::extract);
     let paths = sort_paths(sort.unwrap_or(SortKind::Standard), paths)?;
+    let new_paths: Vec<_> = paths.iter().map(|x| renamer.rename(x)).collect();
 
-    let new_paths = paths.iter().map(|x| renamer.rename(x));
+    if let Some(conflict) = has_conflict(&paths, &new_paths) {
+        eprintln!(
+            "Move operation would result in data loss:\n\n    {}",
+            conflict.display()
+        );
+        process::exit(1);
+    }
 
     if force {
         do_rename(&paths, new_paths)?;
@@ -95,7 +102,30 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn do_rename(paths: &[PathBuf], new_paths: impl Iterator<Item = PathBuf>) -> io::Result<()> {
+fn has_conflict<'a, P: AsRef<Path> + 'a>(paths: &'a [P], new_paths: &'a [P]) -> Option<&'a Path> {
+    use std::collections::HashMap;
+
+    let existing_paths: HashMap<_, _> = paths
+        .iter()
+        .enumerate()
+        .map(|(idx, x)| (x.as_ref(), idx))
+        .collect();
+
+    new_paths
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, x)| {
+            let &existing_idx = existing_paths.get(x.as_ref())?;
+            if idx < existing_idx {
+                Some(x.as_ref())
+            } else {
+                None
+            }
+        })
+        .next()
+}
+
+fn do_rename(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> io::Result<()> {
     let handle = io::stdout();
     let mut handle = handle.lock();
     let mut count = 0;
@@ -110,7 +140,7 @@ fn do_rename(paths: &[PathBuf], new_paths: impl Iterator<Item = PathBuf>) -> io:
     Ok(())
 }
 
-fn do_copy(paths: &[PathBuf], new_paths: impl Iterator<Item = PathBuf>) -> io::Result<()> {
+fn do_copy(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> io::Result<()> {
     let handle = io::stdout();
     let mut handle = handle.lock();
     let mut count = 0;
@@ -125,7 +155,7 @@ fn do_copy(paths: &[PathBuf], new_paths: impl Iterator<Item = PathBuf>) -> io::R
     Ok(())
 }
 
-fn preview(paths: &[PathBuf], new_paths: impl Iterator<Item = PathBuf>) -> io::Result<()> {
+fn preview(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> io::Result<()> {
     let handle = io::stdout();
     let mut handle = handle.lock();
     let mut count = 0;
