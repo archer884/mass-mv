@@ -1,10 +1,13 @@
 use crate::template::{Segment, Template};
+use regex::Regex;
 use std::fmt::{self, Display};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug)]
 pub struct Renamer {
     idx: u32,
     template: Template,
+    pattern: Option<Regex>,
 }
 
 impl Renamer {
@@ -12,22 +15,32 @@ impl Renamer {
         Self {
             idx: 1,
             template: Template::new(template),
+            pattern: None,
         }
     }
 
-    pub fn with_idx(template: &str, idx: u32) -> Self {
-        Self {
-            idx,
-            template: Template::new(template),
+    pub fn with_idx(mut self, idx: Option<u32>) -> Self {
+        if let Some(idx) = idx {
+            self.idx = idx;
         }
+        self
+    }
+
+    pub fn with_pattern(mut self, pattern: Option<Regex>) -> Self {
+        if let Some(pattern) = pattern {
+            self.pattern = Some(pattern);
+        }
+        self
     }
 
     pub fn rename(&mut self, path: &Path) -> PathBuf {
         let stem = self.context(path).to_string();
         let mut result = path.with_file_name(stem);
+
         if let Some(extension) = path.extension() {
             result.set_extension(extension);
         }
+
         self.idx += 1;
         result
     }
@@ -37,6 +50,7 @@ impl Renamer {
             idx: self.idx,
             path,
             template: &self.template,
+            pattern: self.pattern.as_ref(),
         }
     }
 }
@@ -45,6 +59,30 @@ pub struct RenameContext<'a> {
     idx: u32,
     path: &'a Path,
     template: &'a Template,
+    pattern: Option<&'a Regex>,
+}
+
+impl RenameContext<'_> {
+    fn format_filename(&self, f: &mut fmt::Formatter, width: usize) -> fmt::Result {
+        let name = self
+            .path
+            .file_stem()
+            .expect("Must be a filename")
+            .to_string_lossy();
+
+        let name = self.extract_name(&name);
+        match width {
+            1 => f.write_str(&name),
+            n => f.write_str(&name[..n]),
+        }
+    }
+
+    fn extract_name<'a>(&self, text: &'a str) -> &'a str {
+        self.pattern
+            .and_then(|x| x.captures(text))
+            .and_then(|x| x.get(1).or_else(|| x.get(0)))
+            .map_or(text, |x| x.as_str())
+    }
 }
 
 impl Display for RenameContext<'_> {
@@ -53,27 +91,16 @@ impl Display for RenameContext<'_> {
             match segment {
                 Segment::Literal(s) => f.write_str(s)?,
                 Segment::Numeric(width) => write!(f, "{:0width$}", self.idx, width = width)?,
-                Segment::Filename(width) => format_filename(f, self.path, *width)?,
+                Segment::Filename(width) => self.format_filename(f, *width)?,
             }
         }
         Ok(())
     }
 }
 
-fn format_filename(f: &mut fmt::Formatter, path: &Path, width: usize) -> fmt::Result {
-    let name = path
-        .file_stem()
-        .expect("Must be a filename")
-        .to_string_lossy();
-
-    match width {
-        1 => f.write_str(&name),
-        n => f.write_str(&name[..n]),
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use regex::Regex;
     use std::path::Path;
 
     #[test]
@@ -143,7 +170,33 @@ mod tests {
             Path::new("Fuzzy Bear 030-f42 (original).jpg"),
         ];
 
-        let mut renamer = super::Renamer::with_idx("Fuzzy Bear {{nnn}}-{{ooo}} (original)", 21);
+        let mut renamer =
+            super::Renamer::new("Fuzzy Bear {{nnn}}-{{ooo}} (original)").with_idx(Some(21));
+        let actual = files
+            .into_iter()
+            .cloned()
+            .map(|x| renamer.rename(x.as_ref()));
+
+        for (actual, &expected) in actual.zip(expected) {
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn rename_works_with_filename_pattern() {
+        let files = &[
+            "Highlander S05E01 Prophecy.mp4",
+            "Highlander S04E22 One Minute to Midnight.mp4",
+        ];
+
+        let expected = &[
+            Path::new("S05E01 Prophecy.mp4"),
+            Path::new("S05E02 One Minute to Midnight.mp4"),
+        ];
+
+        let mut renamer = super::Renamer::new("S05E{{00}} {{f}}")
+            .with_pattern(Some(Regex::new(r#".*S\d\dE\d\d (.+)"#).unwrap()));
+
         let actual = files
             .into_iter()
             .cloned()

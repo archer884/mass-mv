@@ -2,6 +2,7 @@ mod paths;
 mod rename;
 mod template;
 
+use regex::Regex;
 use rename::Renamer;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -10,10 +11,13 @@ use structopt::StructOpt;
 
 #[derive(Copy, Clone, Debug)]
 enum SortKind {
+    /// Sort by created date
     Created,
+
+    /// Sort by modified date
     Modified,
 
-    // Do we need this for anything!?
+    /// Sort by path (default)
     Standard,
 }
 
@@ -45,7 +49,7 @@ struct Opt {
     /// Tokens include [0, n] (numeric) and [f, o] (filename).
     template: String,
 
-    /// Paths (glob patterns or specific files) to be moved.
+    /// Paths (glob patterns or specific files) to be moved
     paths: Vec<String>,
 
     /// Perform copy instead of rename
@@ -56,13 +60,21 @@ struct Opt {
     #[structopt(short, long)]
     force: bool,
 
-    /// Allows users to set an arbitrary starting point for numbering.
+    /// Allows users to set an arbitrary starting point for numbering
     #[structopt(short, long)]
     offset: Option<u32>,
 
     /// Set sorting type
     #[structopt(short, long)]
     sort: Option<SortKind>,
+
+    /// Use a regular expression to extract part of the filename. Text
+    /// matched by the pattern will replace the filename when using a
+    /// template to create a new filename. If your expression exposes
+    /// capture groups, the first such group will be used instead. Note 
+    /// that your pattern should NOT include a filename extension.
+    #[structopt(long)]
+    pattern: Option<Regex>,
 }
 
 fn main() -> io::Result<()> {
@@ -73,11 +85,12 @@ fn main() -> io::Result<()> {
         force,
         offset,
         sort,
+        pattern,
     } = Opt::from_args();
 
-    let mut renamer = offset
-        .map(|idx| Renamer::with_idx(&template, idx))
-        .unwrap_or_else(|| Renamer::new(&template));
+    let mut renamer = Renamer::new(&template)
+        .with_idx(offset)
+        .with_pattern(pattern);
 
     let paths = paths.into_iter().flat_map(paths::extract);
     let paths = sort_paths(sort.unwrap_or(SortKind::Standard), paths)?;
@@ -173,10 +186,7 @@ fn format_op(writer: &mut io::StdoutLock, from: &Path, to: &Path) -> io::Result<
     writeln!(writer, "{}\n -> {}", from.display(), to.display())
 }
 
-fn sort_paths<'a>(
-    sort: SortKind,
-    paths: impl Iterator<Item = PathBuf>,
-) -> io::Result<Vec<PathBuf>> {
+fn sort_paths(sort: SortKind, paths: impl Iterator<Item = PathBuf>) -> io::Result<Vec<PathBuf>> {
     use std::fs::Metadata;
     use std::time::SystemTime;
 
