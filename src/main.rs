@@ -144,8 +144,8 @@ fn do_rename(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) ->
     let mut count = 0;
 
     for (from, to) in paths.iter().zip(new_paths) {
+        fs::rename(from, &to)?;
         format_op(&mut handle, from, &to)?;
-        fs::rename(from, to)?;
         count += 1;
     }
 
@@ -159,8 +159,8 @@ fn do_copy(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> i
     let mut count = 0;
 
     for (from, to) in paths.iter().zip(new_paths) {
+        fs::copy(from, &to)?;
         format_op(&mut handle, from, &to)?;
-        fs::copy(from, to)?;
         count += 1;
     }
 
