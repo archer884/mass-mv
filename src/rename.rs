@@ -1,4 +1,8 @@
-use crate::template::{Segment, Template};
+use crate::{
+    options::Options,
+    template::{Segment, Template},
+};
+
 use regex::Regex;
 use std::fmt::{self, Display};
 use std::path::{Path, PathBuf};
@@ -10,27 +14,13 @@ pub struct Renamer {
     pattern: Option<Regex>,
 }
 
-impl Renamer {
-    pub fn new(template: &str) -> Self {
+impl<'a> Renamer {
+    pub fn from_options(options: &mut Options) -> Self {
         Self {
-            idx: 1,
-            template: Template::new(template),
-            pattern: None,
+            idx: options.start,
+            template: Template::new(&options.template),
+            pattern: options.pattern.take(),
         }
-    }
-
-    pub fn with_idx(mut self, idx: Option<u32>) -> Self {
-        if let Some(idx) = idx {
-            self.idx = idx;
-        }
-        self
-    }
-
-    pub fn with_pattern(mut self, pattern: Option<Regex>) -> Self {
-        if let Some(pattern) = pattern {
-            self.pattern = Some(pattern);
-        }
-        self
     }
 
     pub fn rename(&mut self, path: &Path) -> PathBuf {
@@ -45,7 +35,7 @@ impl Renamer {
         result
     }
 
-    fn context<'a>(&'a self, path: &'a Path) -> RenameContext {
+    fn context<'p>(&'p self, path: &'p Path) -> RenameContext {
         RenameContext {
             idx: self.idx,
             path,
@@ -100,7 +90,6 @@ impl Display for RenameContext<'_> {
 
 #[cfg(test)]
 mod tests {
-    use regex::Regex;
     use std::path::Path;
 
     #[test]
@@ -131,7 +120,12 @@ mod tests {
             Path::new("Fuzzy Bear 010-f42 (original).jpg"),
         ];
 
-        let mut renamer = super::Renamer::new("Fuzzy Bear {{nnn}}-{{ooo}} (original)");
+        let mut renamer = super::Renamer {
+            idx: 1,
+            template: super::Template::new("Fuzzy Bear {{nnn}}-{{ooo}} (original)"),
+            pattern: None,
+        };
+
         let actual = files
             .into_iter()
             .cloned()
@@ -170,8 +164,12 @@ mod tests {
             Path::new("Fuzzy Bear 030-f42 (original).jpg"),
         ];
 
-        let mut renamer =
-            super::Renamer::new("Fuzzy Bear {{nnn}}-{{ooo}} (original)").with_idx(Some(21));
+        let mut renamer = super::Renamer {
+            idx: 21,
+            template: super::Template::new("Fuzzy Bear {{nnn}}-{{ooo}} (original)"),
+            pattern: None,
+        };
+
         let actual = files
             .into_iter()
             .cloned()
@@ -194,8 +192,11 @@ mod tests {
             Path::new("S05E02 One Minute to Midnight.mp4"),
         ];
 
-        let mut renamer = super::Renamer::new("S05E{{00}} {{f}}")
-            .with_pattern(Some(Regex::new(r#".*S\d\dE\d\d (.+)"#).unwrap()));
+        let mut renamer = super::Renamer {
+            idx: 1,
+            template: super::Template::new("S05E{{00}} {{f}}"),
+            pattern: regex::Regex::new(r#".*S\d\dE\d\d (.+)"#).ok(),
+        };
 
         let actual = files
             .into_iter()
