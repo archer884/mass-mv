@@ -2,11 +2,15 @@ mod paths;
 mod rename;
 mod template;
 
+use std::{
+    fs,
+    io::{self, Write},
+    path::{Path, PathBuf},
+    process, str,
+};
+
 use regex::Regex;
 use rename::Renamer;
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
-use std::{fs, process, str};
 use structopt::StructOpt;
 
 #[derive(Copy, Clone, Debug)]
@@ -71,7 +75,7 @@ struct Opt {
     /// Use a regular expression to extract part of the filename. Text
     /// matched by the pattern will replace the filename when using a
     /// template to create a new filename. If your expression exposes
-    /// capture groups, the first such group will be used instead. Note 
+    /// capture groups, the first such group will be used instead. Note
     /// that your pattern should NOT include a filename extension.
     #[structopt(long)]
     pattern: Option<Regex>,
