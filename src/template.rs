@@ -1,5 +1,6 @@
-use regex::Regex;
 use std::slice;
+
+use regex::Regex;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Segment {

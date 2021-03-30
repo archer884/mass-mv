@@ -1,14 +1,14 @@
-mod options;
-mod paths;
-mod rename;
-mod template;
-
 use std::{
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
     process,
 };
+
+mod options;
+mod paths;
+mod rename;
+mod template;
 
 use options::{ExecutionMode, Options, SortMode};
 use rename::Renamer;

@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::{fs, iter};
+use std::{fs, iter, path::PathBuf};
 
 pub fn extract(path: impl AsRef<str>) -> Box<dyn Iterator<Item = PathBuf>> {
     let path = path.as_ref();

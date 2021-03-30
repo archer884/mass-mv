@@ -1,11 +1,14 @@
+use std::{
+    fmt::{self, Display},
+    path::{Path, PathBuf},
+};
+
+use regex::Regex;
+
 use crate::{
     options::Options,
     template::{Segment, Template},
 };
-
-use regex::Regex;
-use std::fmt::{self, Display};
-use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct Renamer {
