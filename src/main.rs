@@ -112,6 +112,7 @@ fn preview<'a>(operations: impl Iterator<Item = Operation<'a>>) -> io::Result<()
     Ok(())
 }
 
+// FIXME: use single-line formatting for lines less than a width
 fn format_op(writer: &mut io::StdoutLock, op: &Operation<'_>) -> io::Result<()> {
     writeln!(writer, "{}\n -> {}", op.from.display(), op.to.display())
 }
