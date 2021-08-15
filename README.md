@@ -40,3 +40,9 @@ The `n` placeholder will insert the file's number in the sequence. (Files are so
 The `o` placeholder calls for the program to insert the file's original name. Similar to the `n` placeholder, `ooo` will insert the first three characters of the original name. I don't know precisely why you would want to do this, but you can. That said, `o` by itself will just insert the full name.
 
 Templates must be enclosed in `{{}}` to be recognized.
+
+## Data loss
+
+mmv attempts to guard against data loss by refusing to move any item to the location of any other existing item. That said, it's not very smart at shuffling data around; it will go front to back or back to front, and if neither of those options works it will just give up.
+
+> Note: at no point should mmv lose any files.

@@ -2,88 +2,80 @@ use std::{
     fs,
     io::{self, Write},
     path::{Path, PathBuf},
-    process,
 };
 
+mod iter;
 mod options;
 mod paths;
 mod rename;
 mod template;
 
-use options::{ExecutionMode, Options, SortMode};
+use either::Either;
+use iter::{Forward, Operation, Reverse};
+use options::{ExecutionMode, Opts, SortMode};
 use rename::Renamer;
 
-fn main() -> io::Result<()> {
-    let mut options = Options::from_args();
-    let mut renamer = Renamer::from_options(&mut options);
+use crate::iter::{DataTracker, MultimodeConflict};
 
-    let paths = options.paths.iter().flat_map(paths::extract);
-    let paths = sort_paths(options.sort, paths)?;
-    let new_paths: Vec<_> = paths.iter().map(|x| renamer.rename(x)).collect();
-
-    if let Some(conflict) = has_conflict(&paths, &new_paths) {
-        eprintln!(
-            "Move operation would result in data loss:\n\n    {}",
-            conflict.display()
-        );
-        process::exit(1);
+fn main() {
+    let mut opts = Opts::from_args();
+    if let Err(e) = run(&mut opts) {
+        eprintln!("{}", e);
+        std::process::exit(1);
     }
+}
 
-    match options.execution {
-        ExecutionMode::Copy => do_copy(&paths, new_paths)?,
-        ExecutionMode::Move => do_rename(&paths, new_paths)?,
-        ExecutionMode::Preview => preview(&paths, new_paths)?,
+fn run(opts: &mut Opts) -> anyhow::Result<()> {
+    let mut renamer = Renamer::from_options(opts);
+
+    let paths = opts.paths.iter().flat_map(paths::extract);
+    let from = sort_paths(opts.sort, paths)?;
+    let to: Vec<_> = from.iter().map(|x| renamer.rename(x)).collect();
+    let operations = select_iteration_mode(&from, &to)?;
+
+    match opts.execution {
+        ExecutionMode::Copy => do_copy(operations)?,
+        ExecutionMode::Move => do_rename(operations)?,
+        ExecutionMode::Preview => preview(operations)?,
     }
 
     Ok(())
 }
 
-fn has_conflict<'a, P: AsRef<Path> + 'a>(paths: &'a [P], new_paths: &'a [P]) -> Option<&'a Path> {
-    use std::collections::HashMap;
+fn select_iteration_mode<'a, P: AsRef<Path> + 'a>(
+    from: &'a [P],
+    to: &'a [P],
+) -> anyhow::Result<Either<Forward<'a, P>, Reverse<'a, P>>> {
+    let mut data = DataTracker::new(from);
 
-    let existing_paths: HashMap<_, _> = paths
-        .iter()
-        .enumerate()
-        .map(|(idx, x)| (x.as_ref(), idx))
-        .collect();
-
-    new_paths
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, x)| {
-            let &existing_idx = existing_paths.get(x.as_ref())?;
-            if idx < existing_idx {
-                Some(x.as_ref())
-            } else {
-                None
-            }
-        })
-        .next()
-}
-
-fn do_rename(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> io::Result<()> {
-    let handle = io::stdout();
-    let mut handle = handle.lock();
-    let mut count = 0;
-
-    for (from, to) in paths.iter().zip(new_paths) {
-        fs::rename(from, &to)?;
-        format_op(&mut handle, from, &to)?;
-        count += 1;
+    let mut iteration = Forward::new(from, to);
+    let forward_iteration_result = data.check_iteration(&mut iteration);
+    if forward_iteration_result.is_ok() {
+        iteration.reset();
+        return Ok(Either::Left(iteration));
     }
 
-    println!("Moved {} files", count);
-    Ok(())
+    let mut iteration = Reverse::new(from, to);
+    let reverse_iteration_result = data.check_iteration(&mut iteration);
+    if reverse_iteration_result.is_ok() {
+        iteration.reset();
+        return Ok(Either::Right(iteration));
+    }
+
+    Err(anyhow::anyhow!(MultimodeConflict::new(
+        forward_iteration_result.unwrap_err(),
+        reverse_iteration_result.unwrap_err()
+    )))
 }
 
-fn do_copy(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> io::Result<()> {
+fn do_copy<'a>(operations: impl Iterator<Item = Operation<'a>>) -> io::Result<()> {
     let handle = io::stdout();
     let mut handle = handle.lock();
     let mut count = 0;
 
-    for (from, to) in paths.iter().zip(new_paths) {
-        fs::copy(from, &to)?;
-        format_op(&mut handle, from, &to)?;
+    for op in operations {
+        fs::copy(op.from, op.to)?;
+        format_op(&mut handle, &op)?;
         count += 1;
     }
 
@@ -91,13 +83,28 @@ fn do_copy(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> i
     Ok(())
 }
 
-fn preview(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> io::Result<()> {
+fn do_rename<'a>(operations: impl Iterator<Item = Operation<'a>>) -> io::Result<()> {
     let handle = io::stdout();
     let mut handle = handle.lock();
     let mut count = 0;
 
-    for (from, to) in paths.iter().zip(new_paths) {
-        format_op(&mut handle, from, &to)?;
+    for op in operations {
+        fs::rename(op.from, op.to)?;
+        format_op(&mut handle, &op)?;
+        count += 1;
+    }
+
+    println!("Moved {} files", count);
+    Ok(())
+}
+
+fn preview<'a>(operations: impl Iterator<Item = Operation<'a>>) -> io::Result<()> {
+    let handle = io::stdout();
+    let mut handle = handle.lock();
+    let mut count = 0;
+
+    for op in operations {
+        format_op(&mut handle, &op)?;
         count += 1;
     }
 
@@ -105,8 +112,8 @@ fn preview(paths: &[PathBuf], new_paths: impl IntoIterator<Item = PathBuf>) -> i
     Ok(())
 }
 
-fn format_op(writer: &mut io::StdoutLock, from: &Path, to: &Path) -> io::Result<()> {
-    writeln!(writer, "{}\n -> {}", from.display(), to.display())
+fn format_op(writer: &mut io::StdoutLock, op: &Operation<'_>) -> io::Result<()> {
+    writeln!(writer, "{}\n -> {}", op.from.display(), op.to.display())
 }
 
 fn sort_paths(sort: SortMode, paths: impl Iterator<Item = PathBuf>) -> io::Result<Vec<PathBuf>> {

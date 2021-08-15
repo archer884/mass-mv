@@ -6,7 +6,7 @@ use std::{
 use regex::Regex;
 
 use crate::{
-    options::Options,
+    options::Opts,
     template::{Segment, Template},
 };
 
@@ -18,7 +18,7 @@ pub struct Renamer {
 }
 
 impl<'a> Renamer {
-    pub fn from_options(options: &mut Options) -> Self {
+    pub fn from_options(options: &mut Opts) -> Self {
         Self {
             idx: options.start,
             template: Template::new(&options.template),
@@ -65,7 +65,7 @@ impl RenameContext<'_> {
 
         let name = self.extract_name(&name);
         match width {
-            1 => f.write_str(&name),
+            1 => f.write_str(name),
             n => f.write_str(&name[..n]),
         }
     }

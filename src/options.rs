@@ -21,7 +21,7 @@ pub enum ExecutionMode {
 }
 
 #[derive(Clone, Debug)]
-pub struct Options {
+pub struct Opts {
     pub template: String,
     pub paths: Vec<String>,
     pub pattern: Option<Regex>,
@@ -30,7 +30,7 @@ pub struct Options {
     pub sort: SortMode,
 }
 
-impl Options {
+impl Opts {
     pub fn from_args() -> Self {
         use structopt::clap::ArgGroup;
 
@@ -123,7 +123,7 @@ impl Options {
             sort_opts,
         } = StructOpt::from_args();
 
-        Options {
+        Opts {
             template,
             paths,
             pattern,
