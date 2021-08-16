@@ -112,9 +112,15 @@ fn preview<'a>(operations: impl Iterator<Item = Operation<'a>>) -> io::Result<()
     Ok(())
 }
 
-// FIXME: use single-line formatting for lines less than a width
 fn format_op(writer: &mut io::StdoutLock, op: &Operation<'_>) -> io::Result<()> {
-    writeln!(writer, "{}\n -> {}", op.from.display(), op.to.display())
+    const MAX_FORMATTED_LEN: usize = 80;
+
+    let formatted = format!("{} -> {}", op.from.display(), op.to.display());
+    if formatted.len() > MAX_FORMATTED_LEN {
+        writeln!(writer, "{}\n -> {}", op.from.display(), op.to.display())
+    } else {
+        writeln!(writer, "{}", formatted)
+    }
 }
 
 fn sort_paths(sort: SortMode, paths: impl Iterator<Item = PathBuf>) -> io::Result<Vec<PathBuf>> {
