@@ -38,9 +38,9 @@ impl Opts {
         struct Template {
             /// Rename templates are used to replace the file stem using replacement tokens. Available replacement tokens include n and o to replace with the number and original filename.
             ///
-            /// Use nn for [01, 02, ...] and nnn for [001, 002, ...] etc. The same thing works with filenames: oooo for "foobar" will cause "foob" to be included in the filename.
+            /// Use n:2 for [01, 02, ...] and n:3 for [001, 002, ...] etc. The same thing works with filenames: o:4 for "foobar" will cause "foob" to be included in the filename.
             ///
-            /// Enclose replacement tokens in {{}}, e.g. {{nnn}}. Tokens include [0, n] (numeric) and [f, o] (filename).
+            /// Enclose replacement tokens in {}, e.g. {n}. Tokens include [0, n] (numeric) and [f, o] (filename).
             template: String,
 
             /// Paths (glob patterns or specific files) to be moved
@@ -66,7 +66,7 @@ impl Opts {
         #[derive(Clone, Debug, StructOpt)]
         struct ExecutionOptions {
             /// Copy files
-            #[structopt(short, long)]
+            #[structopt(long)]
             copy: bool,
 
             /// Rename files
@@ -90,15 +90,15 @@ impl Opts {
         #[structopt(group = ArgGroup::with_name("sort"))]
         struct SortOptions {
             /// Sort files by created date when renaming.
-            #[structopt(long, group = "sort")]
+            #[structopt(short, long, group = "sort")]
             created: bool,
 
             /// Sort files by modified date when renaming.
-            #[structopt(long, group = "sort")]
+            #[structopt(short, long, group = "sort")]
             modified: bool,
 
             /// Sort files by path when renaming. (Default)
-            #[structopt(long, group = "sort")]
+            #[structopt(short, long, group = "sort")]
             path: bool,
         }
 
