@@ -7,7 +7,7 @@ use regex::Regex;
 
 use crate::{
     options::Opts,
-    template::{Segment, Template},
+    template::{Segment, Template, TemplateParser},
 };
 
 #[derive(Debug)]
@@ -19,9 +19,10 @@ pub struct Renamer {
 
 impl<'a> Renamer {
     pub fn from_options(options: &mut Opts) -> Self {
+        let parser = TemplateParser::new();
         Self {
             idx: options.start,
-            template: Template::new(&options.template),
+            template: parser.parse(&options.template),
             pattern: options.pattern.take(),
         }
     }
@@ -95,6 +96,8 @@ impl Display for RenameContext<'_> {
 mod tests {
     use std::path::Path;
 
+    use crate::template::TemplateParser;
+
     #[test]
     fn rename_works() {
         let files = &[
@@ -123,9 +126,10 @@ mod tests {
             Path::new("Fuzzy Bear 010-f42 (original).jpg"),
         ];
 
+        let parser = TemplateParser::new();
         let mut renamer = super::Renamer {
             idx: 1,
-            template: super::Template::new("Fuzzy Bear {{nnn}}-{{ooo}} (original)"),
+            template: parser.parse("Fuzzy Bear {n:3}-{o:3} (original)"),
             pattern: None,
         };
 
@@ -167,9 +171,10 @@ mod tests {
             Path::new("Fuzzy Bear 030-f42 (original).jpg"),
         ];
 
+        let parser = TemplateParser::new();
         let mut renamer = super::Renamer {
             idx: 21,
-            template: super::Template::new("Fuzzy Bear {{nnn}}-{{ooo}} (original)"),
+            template: parser.parse("Fuzzy Bear {n:3}-{o:3} (original)"),
             pattern: None,
         };
 
@@ -195,9 +200,10 @@ mod tests {
             Path::new("S05E02 One Minute to Midnight.mp4"),
         ];
 
+        let parser = TemplateParser::new();
         let mut renamer = super::Renamer {
             idx: 1,
-            template: super::Template::new("S05E{{00}} {{f}}"),
+            template: parser.parse("S05E{0:2} {f}"),
             pattern: regex::Regex::new(r#".*S\d\dE\d\d (.+)"#).ok(),
         };
 
