@@ -1,5 +1,6 @@
 use std::{
     fmt::{self, Display},
+    iter,
     path::{Path, PathBuf},
 };
 
@@ -13,15 +14,17 @@ use crate::{
 #[derive(Debug)]
 pub struct Renamer {
     idx: u32,
+    count: Option<usize>,
     template: Template,
     pattern: Option<Regex>,
 }
 
 impl<'a> Renamer {
-    pub fn from_options(options: &mut Opts) -> Self {
+    pub fn new(options: &mut Opts, count: Option<usize>) -> Self {
         let parser = TemplateParser::new();
         Self {
             idx: options.start,
+            count,
             template: parser.parse(&options.template),
             pattern: options.pattern.take(),
         }
@@ -42,6 +45,7 @@ impl<'a> Renamer {
     fn context<'p>(&'p self, path: &'p Path) -> RenameContext {
         RenameContext {
             idx: self.idx,
+            width: get_width(self.count),
             path,
             template: &self.template,
             pattern: self.pattern.as_ref(),
@@ -51,6 +55,7 @@ impl<'a> Renamer {
 
 pub struct RenameContext<'a> {
     idx: u32,
+    width: Option<usize>,
     path: &'a Path,
     template: &'a Template,
     pattern: Option<&'a Regex>,
@@ -84,12 +89,32 @@ impl Display for RenameContext<'_> {
         for segment in self.template.segments() {
             match segment {
                 Segment::Literal(s) => f.write_str(s)?,
-                Segment::Numeric(width) => write!(f, "{:0width$}", self.idx, width = width)?,
+                Segment::Numeric(width) => write!(
+                    f,
+                    "{:0width$}",
+                    self.idx,
+                    width = width.max(&self.width.unwrap_or_default())
+                )?,
                 Segment::Filename(width) => self.format_filename(f, *width)?,
             }
         }
         Ok(())
     }
+}
+
+fn get_width(count: Option<usize>) -> Option<usize> {
+    let count = count?;
+    let mut witness_pairs = iter::successors(Some((1usize, 10usize)), |(width, witness)| {
+        witness.checked_mul(10).map(|witness| (width + 1, witness))
+    });
+
+    witness_pairs.find_map(|witness| {
+        if witness.1 > count {
+            Some(witness.0)
+        } else {
+            None
+        }
+    })
 }
 
 #[cfg(test)]
@@ -129,6 +154,7 @@ mod tests {
         let parser = TemplateParser::new();
         let mut renamer = super::Renamer {
             idx: 1,
+            count: None,
             template: parser.parse("Fuzzy Bear {n:3}-{o:3} (original)"),
             pattern: None,
         };
@@ -174,6 +200,7 @@ mod tests {
         let parser = TemplateParser::new();
         let mut renamer = super::Renamer {
             idx: 21,
+            count: None,
             template: parser.parse("Fuzzy Bear {n:3}-{o:3} (original)"),
             pattern: None,
         };
@@ -203,6 +230,7 @@ mod tests {
         let parser = TemplateParser::new();
         let mut renamer = super::Renamer {
             idx: 1,
+            count: None,
             template: parser.parse("S05E{0:2} {f}"),
             pattern: regex::Regex::new(r#".*S\d\dE\d\d (.+)"#).ok(),
         };
@@ -215,5 +243,12 @@ mod tests {
         for (actual, &expected) in actual.zip(expected) {
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn get_width() {
+        assert_eq!(Some(1), super::get_width(Some(1)));
+        assert_eq!(Some(3), super::get_width(Some(300)));
+        assert_eq!(Some(9), super::get_width(Some(987456321)));
     }
 }

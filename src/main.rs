@@ -26,10 +26,9 @@ fn main() {
 }
 
 fn run(opts: &mut Opts) -> anyhow::Result<()> {
-    let mut renamer = Renamer::from_options(opts);
-
     let paths = opts.paths.iter().flat_map(paths::extract);
     let from = sort_paths(opts.sort, paths)?;
+    let mut renamer = Renamer::new(opts, Some(from.len()));
     let to: Vec<_> = from.iter().map(|x| renamer.rename(x)).collect();
     let operations = select_iteration_mode(&from, &to)?;
 
