@@ -1,5 +1,5 @@
+use clap::Parser;
 use regex::Regex;
-use structopt::StructOpt;
 
 #[derive(Copy, Clone, Debug)]
 pub enum SortMode {
@@ -21,7 +21,7 @@ pub enum ExecutionMode {
 }
 
 #[derive(Clone, Debug)]
-pub struct Opts {
+pub struct Args {
     pub template: String,
     pub paths: Vec<String>,
     pub pattern: Option<Regex>,
@@ -30,11 +30,11 @@ pub struct Opts {
     pub sort: SortMode,
 }
 
-impl Opts {
-    pub fn from_args() -> Self {
-        use structopt::clap::ArgGroup;
+impl Args {
+    pub fn parse() -> Self {
+        use clap::ArgGroup;
 
-        #[derive(Clone, Debug, StructOpt)]
+        #[derive(Clone, Debug, Parser)]
         struct Template {
             /// Rename templates are used to replace the file stem using replacement tokens. Available replacement tokens include n and o to replace with the number and original filename.
             ///
@@ -53,17 +53,17 @@ impl Opts {
             pattern: Option<Regex>,
 
             /// Start numbering at something other than 1.
-            #[structopt(short = "s", long = "start")]
+            #[structopt(short, long)]
             start: Option<u32>,
 
-            #[structopt(flatten)]
+            #[command(flatten)]
             execution_opts: ExecutionOptions,
 
-            #[structopt(flatten)]
+            #[command(flatten)]
             sort_opts: SortOptions,
         }
 
-        #[derive(Clone, Debug, StructOpt)]
+        #[derive(Clone, Debug, Parser)]
         struct ExecutionOptions {
             /// Copy files
             #[structopt(long)]
@@ -86,8 +86,8 @@ impl Opts {
             }
         }
 
-        #[derive(Clone, Debug, StructOpt)]
-        #[structopt(group = ArgGroup::with_name("sort"))]
+        #[derive(Clone, Debug, Parser)]
+        #[command(group = ArgGroup::new("sort"))]
         struct SortOptions {
             /// Sort files by created date when renaming.
             #[structopt(short, long, group = "sort")]
@@ -121,9 +121,9 @@ impl Opts {
             start,
             execution_opts,
             sort_opts,
-        } = StructOpt::from_args();
+        } = Parser::parse();
 
-        Opts {
+        Args {
             template,
             paths,
             pattern,

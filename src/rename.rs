@@ -7,7 +7,7 @@ use std::{
 use regex::Regex;
 
 use crate::{
-    options::Opts,
+    args::Args,
     template::{Segment, Template, TemplateParser},
 };
 
@@ -19,8 +19,8 @@ pub struct Renamer {
     pattern: Option<Regex>,
 }
 
-impl<'a> Renamer {
-    pub fn new(options: &mut Opts, count: Option<usize>) -> Self {
+impl Renamer {
+    pub fn new(options: &mut Args, count: Option<usize>) -> Self {
         let parser = TemplateParser::new();
         Self {
             idx: options.start,

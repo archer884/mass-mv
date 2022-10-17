@@ -4,28 +4,27 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod args;
 mod iter;
-mod options;
 mod paths;
 mod rename;
 mod template;
 
+use args::{Args, ExecutionMode, SortMode};
 use either::Either;
 use iter::{Forward, Operation, Reverse};
-use options::{ExecutionMode, Opts, SortMode};
 use rename::Renamer;
 
 use crate::iter::{DataTracker, MultimodeConflict};
 
 fn main() {
-    let mut opts = Opts::from_args();
-    if let Err(e) = run(&mut opts) {
+    if let Err(e) = run(&mut Args::parse()) {
         eprintln!("{}", e);
         std::process::exit(1);
     }
 }
 
-fn run(opts: &mut Opts) -> anyhow::Result<()> {
+fn run(opts: &mut Args) -> anyhow::Result<()> {
     let paths = opts.paths.iter().flat_map(paths::extract);
     let from = sort_paths(opts.sort, paths)?;
     let mut renamer = Renamer::new(opts, Some(from.len()));
